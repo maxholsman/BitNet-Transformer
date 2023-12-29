@@ -22,6 +22,85 @@ from pathlib import Path
 from dataset import TranslationDataset, causal_mask
 from model import build_transformer
 
+def greedy_inference_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_len, device):
+    sos_idx = tokenizer_src.token_to_id("[SOS]")
+    eos_idx = tokenizer_src.token_to_id("[EOS]")
+    
+    # precompute encoder output
+    
+    encoder_output = model.encode(source, source_mask)
+    
+    decoder_input = torch.tensor([[sos_idx]]).type_as(source).to(device) # [1, 1], initialize decoder input with sos token
+    while True:
+        if decoder_input.shape[1] >= max_len:
+            break
+        
+        # create mask for target
+        decoder_mask = causal_mask(decoder_input.shape[1]).type_as(source_mask).to(device) 
+        
+        # calc output
+        output = model.decode(decoder_input, encoder_output, source_mask, decoder_mask)
+        
+        # get next token
+        probabilities = model.project(output[:, -1]) # only want projection for last token
+        
+        _, next_word = torch.max(probabilities, dim=1) # greedy sampling of next token
+        
+        # append new word onto decoder input for next iteration through decoder
+        decoder_input = torch.cat([decoder_input, torch.tensor([[next_word.item()]]).type_as(source.to(device))], dim=1)
+        
+        if next_word == eos_idx:
+            break
+    
+    return decoder_input.squeeze(0) # remove batch dimension    
+
+def run_validation(model, validation_dataset, tokenizer_src, tokenizer_tgt, max_len, device, print_msg, global_state, writer, num_examples=2):
+    model.eval() # set model to evaluation mode
+    
+    # inference two sentences to see what output of model would be
+    
+    source_texts = []
+    target_texts = []
+    predicted_text = []
+    
+    console_width = 80
+    
+    count = 1 
+    with torch.no_grad():
+        for batch in validation_dataset:
+            count += 1
+            
+            # validation dataset only has batch size of 1, but lets check anyhow
+            
+            encoder_input = batch['encoder_input'].to(device) # [batch_size, seq_len]
+            encoder_mask = batch['encoder_mask'].to(device) # [batch_size, 1, 1, seq_len]
+            
+            assert encoder_input.shape[0] == 1, "Validation dataset must have batch size of 1"
+            
+            model_output = greedy_inference_decode(model, encoder_input, encoder_mask, tokenizer_src, tokenizer_tgt, max_len, device)
+            
+            source_text = batch['src_text'][0]
+            target_text = batch['tgt_text'][0]
+            model_output_text = tokenizer_tgt.decode(model_output.detach().cpu().numpy()) # convert tensor to list, then decode using tokenizer
+            
+            source_texts.append(source_text)
+            target_texts.append(target_text)
+            predicted_text.append(model_output_text)
+            
+            # print on console
+            
+            print_msg('-' * console_width)
+            print_msg(f'Source: {source_text}')
+            print_msg(f'Target: {target_text}')
+            print_msg(f'Predicted: {model_output_text}')
+            
+            if count >= num_examples:
+                break
+            
+    if writer:
+        # TorchMetrics for CharrErrorRate, BLEU, WordErrorRate, look into these later
+        pass      
+
 def get_sentences(dataset, language):
     for sentence_pair in dataset:
         yield sentence_pair['translation'][language]
@@ -113,9 +192,10 @@ def train_model(config):
     # training loop
     
     for epoch in range(initial_epoch, config['num_epochs']):
-        model.train()
+        
         batch_iterator = tqdm(train_dataloader, desc=f"Processing epoch {epoch}")
         for batch in batch_iterator:
+            model.train()
             encoder_input = batch['encoder_input'].to(device) # [batch_size, seq_len]
             decoder_input = batch['decoder_input'].to(device) # [batch_size, seq_len]
             encoder_mask = batch['encoder_mask'].to(device) # [batch_size, 1, 1, seq_len]
@@ -140,6 +220,9 @@ def train_model(config):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            
+            # validation
+            run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
             
             global_step += 1
             
