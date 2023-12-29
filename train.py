@@ -221,11 +221,11 @@ def train_model(config):
             loss.backward()
             optimizer.step()
             
-            # validation
-            run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
-            
             global_step += 1
-            
+        
+        # validation
+        run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
+        
         # save model
         model_filename = get_weights_file_path(config, epoch)
         torch.save({
