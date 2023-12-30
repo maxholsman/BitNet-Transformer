@@ -223,10 +223,10 @@ def train_model(config):
             
             global_step += 1
             
-            if i % 100 == 0:
-                print(f"Epoch {epoch}, global step {global_step}, loss: {loss.item()}")    
-                # validation
-                run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
+            # if i % 100 == 0:
+                
+        # validation
+        run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
         
         # save model
         model_filename = get_weights_file_path(config, epoch)
