@@ -54,11 +54,11 @@ class PositionalEncoding(nn.Module):
 # also add and multiply two additional parameters, to give the model the ability to amplify or reduce the importance of a given feature
 
 class LayerNorm(nn.Module): 
-    def __init__(self, d_model, eps=10e-6):
+    def __init__(self, eps=10e-6):
         super().__init__()
         self.eps = eps
-        self.alpha = nn.Parameter(torch.ones(d_model)) # alpha is a learnable parameter and will be multiplied
-        self.beta = nn.Parameter(torch.zeros(d_model)) # beta is a learnable parameter and will be added
+        self.alpha = nn.Parameter(torch.ones(1)) # alpha is a learnable parameter and will be multiplied
+        self.beta = nn.Parameter(torch.zeros(1)) # beta is a learnable parameter and will be added
         
     def forward(self, x):
         mean = x.mean(dim=-1, keepdim=True) # mean of each item in the batch, not the whole batch
@@ -153,10 +153,10 @@ class MultiHeadAttention(nn.Module):
         return out
     
 class ResidualConnection(nn.Module):
-    def __init__(self, d_model, dropout=0.1):
+    def __init__(self, dropout=0.1):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
-        self.ln = LayerNorm(d_model) # initialized from class defined above
+        self.ln = LayerNorm() # initialized from class defined above
         
     def forward(self, x, sublayer):
         return x + self.dropout(sublayer(self.ln(x))) # takes care of both the residual connection and the layer normalization, sublayer will be either the multihead attention or the feed forward block
@@ -170,7 +170,7 @@ class EncoderBlock(nn.Module):
         self.num_heads = num_heads
         self.dropout = nn.Dropout(dropout)
         
-        self.residual_connection = ResidualConnection(d_model, dropout)
+        self.residual_connection = ResidualConnection(dropout)
         self.multiheadattention = MultiHeadAttention(d_model, num_heads, dropout)
         self.ffblock = FFBlock(d_model, d_ff, dropout)
         
@@ -228,7 +228,7 @@ class DecoderBlock(nn.Module):
         self.d_ff = d_ff
         self.dropout = nn.Dropout(dropout)
         
-        self.residual_connection = ResidualConnection(d_model, dropout)
+        self.residual_connection = ResidualConnection(dropout)
         self.self_attention = MultiHeadAttention(d_model, num_heads, dropout)
         self.cross_attention = MultiHeadAttention(d_model, num_heads, dropout)
         self.ffblock = FFBlock(d_model, d_ff, dropout)
@@ -273,7 +273,7 @@ class ProjectionLayer(nn.Module):
 
     def forward(self, x):
         #applying log softmax for numerical stability
-        return self.projection(x)
+        return torch.log_softmax(self.projection(x), dim=-1)
 
 class Transformer(nn.Module):
     def __init__(self, encoder, decoder, input_embedding, input_positional_embedding, output_embedding, output_positional_embedding, projection_layer):
