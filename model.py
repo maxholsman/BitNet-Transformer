@@ -63,7 +63,7 @@ class LayerNorm(nn.Module):
     def forward(self, x):
         mean = x.mean(dim=-1, keepdim=True) # mean of each item in the batch, not the whole batch
         std = x.std(dim=-1, keepdim=True) # same thing here
-        return self.alpha * (x - mean) / (std + self.eps) * self.beta
+        return self.alpha * (x - mean) / (std + self.eps) + self.beta
 
 class FFBlock(nn.Module):
     def __init__(self, d_model, d_ff, dropout=0.1):
@@ -75,13 +75,12 @@ class FFBlock(nn.Module):
         self.w1 = nn.Linear(d_model, d_ff) #includes bias
         self.w2 = nn.Linear(d_ff, d_model)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(dropout)
         
     def forward(self, x):
         # input: [batch, seq_len, d_model]
         x = self.relu(self.w1(x))
         x = self.dropout(x)
-        x = self.relu(self.w2(x))
+        x = self.w2(x)
         return x
     
 class MultiHeadAttention(nn.Module):
@@ -95,11 +94,11 @@ class MultiHeadAttention(nn.Module):
         
         self.d_k = d_model // num_heads # d_k is the dimension of each head
         
-        self.wq = nn.Linear(d_model, d_model)
-        self.wk = nn.Linear(d_model, d_model)
-        self.wv = nn.Linear(d_model, d_model)
+        self.wq = nn.Linear(d_model, d_model, bias=False)
+        self.wk = nn.Linear(d_model, d_model, bias=False)
+        self.wv = nn.Linear(d_model, d_model, bias=False)
         
-        self.w0 = nn.Linear(d_model, d_model)
+        self.w0 = nn.Linear(d_model, d_model, bias=False)
     
     @staticmethod
     def attention(q, k, v, mask=None, dropout=None):
@@ -110,7 +109,8 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             att.masked_fill_(mask == 0, -1e9)
         
-        att = torch.softmax(att, dim=-1)
+        # att = torch.softmax(att, dim=-1)
+        att = att.softmax(dim=-1)
         
         if dropout is not None:
             att = dropout(att)
