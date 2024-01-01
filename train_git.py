@@ -228,7 +228,7 @@ def train_model(config):
             proj_output = model.project(decoder_output) # (B, seq_len, vocab_size)
 
             # Compare the output with the label
-            label = batch['label'].to(device) # (B, seq_len)
+            label = batch['translation_label'].to(device) # (B, seq_len)
 
             # Compute the loss using a simple cross entropy
             loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1))
