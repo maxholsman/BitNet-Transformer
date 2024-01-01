@@ -291,7 +291,7 @@ def build_transformer(src_vocab_size, tgt_vocab_size, src_seq_len, tgt_seq_len, 
     for i in range(N):
         encoder_self_attention_block = MultiHeadAttention(d_model, num_heads, dropout)
         encoder_ffblock = FFBlock(d_model, d_ff, dropout)
-        encoder_block = EncoderBlock(encoder_self_attention_block, encoder_ffblock, dropout)
+        encoder_block = EncoderBlock(d_model, encoder_self_attention_block, encoder_ffblock, dropout)
         encoder_blocks.append(encoder_block)
     
     decoder_blocks = []
@@ -299,7 +299,7 @@ def build_transformer(src_vocab_size, tgt_vocab_size, src_seq_len, tgt_seq_len, 
         decoder_self_attention_block = MultiHeadAttention(d_model, num_heads, dropout)
         decoder_cross_attention_block = MultiHeadAttention(d_model, num_heads, dropout)
         decoder_ffblock = FFBlock(d_model, d_ff, dropout)
-        decoder_block = DecoderBlock(decoder_self_attention_block, decoder_cross_attention_block, decoder_ffblock, dropout)
+        decoder_block = DecoderBlock(d_model, decoder_self_attention_block, decoder_cross_attention_block, decoder_ffblock, dropout)
         decoder_blocks.append(decoder_block)
     
     encoder = Encoder(d_model, nn.ModuleList(encoder_blocks))
