@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import os
+
 import tensorboard
 from torch.utils.tensorboard import SummaryWriter
 
@@ -47,7 +49,10 @@ def greedy_inference_decode(model, source, source_mask, tokenizer_src, tokenizer
         _, next_word = torch.max(probabilities, dim=1) # greedy sampling of next token
         
         # append new word onto decoder input for next iteration through decoder
-        decoder_input = torch.cat([decoder_input, torch.tensor([[next_word.item()]]).type_as(source.to(device))], dim=1)
+        decoder_input = torch.cat(
+            [decoder_input, 
+             torch.tensor([[next_word.item()]]).type_as(source).to(device)
+             ], dim=1)
         
         if next_word == eos_idx:
             break
@@ -95,6 +100,7 @@ def run_validation(model, validation_dataset, tokenizer_src, tokenizer_tgt, max_
             print_msg(f'Predicted: {model_output_text}')
             
             if count >= num_examples:
+                print_msg('-' * console_width)
                 break
             
     if writer:
@@ -111,7 +117,7 @@ def get_or_build_tokenizer(dataset, config, language):
         tokenizer = Tokenizer(WordLevel(unk_token="[UNK]"))
         tokenizer.pre_tokenizer = Whitespace() # split by whitespace
         trainer = WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"], min_frequency=2) # words must appear at least twice in order to be added to the vocabulary
-        tokenizer.train_from_iterator(get_sentences(dataset, language), trainer)
+        tokenizer.train_from_iterator(get_sentences(dataset, language), trainer=trainer)
         tokenizer.save(str(tokenizer_path))
     else:
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
@@ -119,7 +125,7 @@ def get_or_build_tokenizer(dataset, config, language):
     return tokenizer
 
 def get_datset(config):
-    raw_dataset = load_dataset('opus_books', f'{config["lang_src"]}-{config["lang_tgt"]}', split='train')
+    raw_dataset = load_dataset(f"{config['datasource']}", f'{config["lang_src"]}-{config["lang_tgt"]}', split='train')
     
     tokenizer_src = get_or_build_tokenizer(raw_dataset, config, config['lang_src'])
     tokenizer_tgt = get_or_build_tokenizer(raw_dataset, config, config['lang_tgt'])
@@ -166,7 +172,7 @@ def train_model(config):
     print(f"Using device: {device}")
     
     # create weights folder if it doesn't exist
-    Path(config['model_folder']).mkdir(parents=True, exist_ok=True)
+    Path(f"{config['datasource']}_{config['model_folder']}").mkdir(parents=True, exist_ok=True)
     
     # get dataloaders
     train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_datset(config)
@@ -190,15 +196,16 @@ def train_model(config):
         global_step = state['global_step']
         
     # loss function is cross entropy loss
-    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_src.token_to_id("[PAD]"), label_smoothing=0.1) # don't want padding tokens to contribute to loss, using label smoothing to prevent overfitting
+    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer_src.token_to_id("[PAD]"), label_smoothing=0.1).to(device) # don't want padding tokens to contribute to loss, using label smoothing to prevent overfitting
     
     # training loop
     
     for epoch in range(initial_epoch, config['num_epochs']):
-        
+        torch.cuda.empty_cache()
+        model.train()
         batch_iterator = tqdm(train_dataloader, desc=f"Processing epoch {epoch}")
+        
         for i, batch in enumerate(batch_iterator):
-            model.train()
             encoder_input = batch['encoder_input'].to(device) # [batch_size, seq_len]
             decoder_input = batch['decoder_input'].to(device) # [batch_size, seq_len]
             encoder_mask = batch['encoder_mask'].to(device) # [batch_size, 1, 1, seq_len]
@@ -207,7 +214,7 @@ def train_model(config):
             # pass tensors through model
             encoder_output = model.encode(encoder_input, encoder_mask) # [batch_size, seq_len, d_model]
             # print(f"encoder output type in train.py: {encoder_output.type()}")
-            decoder_output = model.decode(decoder_input, encoder_output, decoder_mask, encoder_mask) # [batch_size, seq_len, d_model]
+            decoder_output = model.decode(decoder_input, encoder_output, encoder_mask, decoder_mask) # [batch_size, seq_len, d_model]
             output = model.project(decoder_output) # [batch_size, seq_len, vocab_tgt_len]
             
             label = batch['translation_label'].to(device) # [batch_size, seq_len]
@@ -220,9 +227,9 @@ def train_model(config):
             writer.flush()
             
             # backpropagation
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
             
             global_step += 1
             
