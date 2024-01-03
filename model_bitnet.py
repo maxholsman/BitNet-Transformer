@@ -376,7 +376,7 @@ class ProjectionLayer(nn.Module):
         #applying log softmax for numerical stability
         return self.projection(x)
 
-class Transformer(nn.Module):
+class BitNetTransformer(nn.Module):
     def __init__(self, encoder, decoder, input_embedding, input_positional_embedding, output_embedding, output_positional_embedding, projection_layer):
         super().__init__()
         self.encoder = encoder
@@ -405,7 +405,7 @@ class Transformer(nn.Module):
         return x
 
 
-def build_transformer(src_vocab_size, tgt_vocab_size, src_seq_len, tgt_seq_len, d_model=512, N=6, num_heads=8, dropout=0.1, d_ff=2048):
+def build_bitnet_transformer(src_vocab_size, tgt_vocab_size, src_seq_len, tgt_seq_len, d_model=512, N=6, num_heads=8, dropout=0.1, d_ff=2048):
     # first create embedding and positional encoding layers
     input_embedding = InputEmbedding(d_model, src_vocab_size)
     input_positional_embedding = PositionalEncoding(d_model, src_seq_len, dropout)

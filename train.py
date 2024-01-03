@@ -15,14 +15,14 @@ from tokenizers.pre_tokenizers import Whitespace
 
 from tqdm import tqdm
 
-from model import Transformer
+from model import Transformer, build_transformer
+from model_bitnet import BitNetTransformer, build_bitnet_transformer
 
 from config import get_config, get_weights_file_path
 
 from pathlib import Path
 
 from dataset import TranslationDataset, causal_mask
-from model import build_transformer
 
 def greedy_inference_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_len, device):
     sos_idx = tokenizer_src.token_to_id("[SOS]")
@@ -32,7 +32,10 @@ def greedy_inference_decode(model, source, source_mask, tokenizer_src, tokenizer
     
     encoder_output = model.encode(source, source_mask)
     
-    decoder_input = torch.tensor([[sos_idx]]).type_as(source).to(device) # [1, 1], initialize decoder input with sos token
+    # decoder_input = torch.tensor([[sos_idx]]).type_as(source).to(device) # [1, 1], initialize decoder input with sos token
+    
+    decoder_input = torch.empty(1, 1).fill_(sos_idx).type_as(source).to(device) # from git
+    
     while True:
         if decoder_input.shape[1] >= max_len:
             break
@@ -163,7 +166,7 @@ def get_model(config, vocab_src_len, vocab_tgt_len):
     if config['transformer_type'] == 'vanilla':
         model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'])
     if config['transformer_type'] == 'bitnet':
-        model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'])
+        model = build_bitnet_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'])
     return model
 
 def train_model(config):
