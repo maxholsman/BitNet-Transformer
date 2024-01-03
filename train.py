@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from nltk.translate.bleu_score import sentence_bleu
+
 import os
 
 import tensorboard
@@ -70,6 +72,7 @@ def run_validation(model, validation_dataset, tokenizer_src, tokenizer_tgt, max_
     source_texts = []
     target_texts = []
     predicted_text = []
+    bleu_scores = []
     
     console_width = 80
     
@@ -95,12 +98,16 @@ def run_validation(model, validation_dataset, tokenizer_src, tokenizer_tgt, max_
             target_texts.append(target_text)
             predicted_text.append(model_output_text)
             
+            bleu_score = sentence_bleu([target_text.split()], model_output_text.split())
+            bleu_scores.append(bleu_score)
+            
             # print on console
             
             print_msg('-' * console_width)
             print_msg(f'Source: {source_text}')
             print_msg(f'Target: {target_text}')
             print_msg(f'Predicted: {model_output_text}')
+            print_msg(f'BLEU score: {bleu_score}')
             
             if count >= num_examples:
                 print_msg('-' * console_width)
