@@ -2,21 +2,29 @@ import torch
 import torch.nn as nn
 import math
 
-def absmax_quantization(x, bit=8):
+def absmax_quantization(x, bit=8, nl_next=False):
     Qb = 2**(bit - 1)
     
     # find the maximum absolute value in the tensor
     max_val = torch.max(torch.abs(x))
+    min_val = torch.min(x)
     
-    # using the max values, we can calculate the scaling factor for each value in the tensor to map it to the range appropriate range
-    scale_factor = Qb / max_val
+    if nl_next:
+        shifted_x = x - min_val
+        max_val = torch.max(torch.abs(shifted_x))
+        
+        scale_factor = Qb / max_val
+        x = torch.round(shifted_x * scale_factor)
+    else:
+        # using the max values, we can calculate the scaling factor for each value in the tensor to map it to the range appropriate range
+        scale_factor = Qb / max_val
+        
+        # now we can quantize the tensor, rounding to the nearest integer
+        x = torch.round(x * scale_factor)
     
-    # now we can quantize the tensor, rounding to the nearest integer
-    x = torch.round(x * scale_factor)
-    
-    return x.to(torch.int8), max_val
+    return x.to(torch.int8), max_val, min_val
 
-def absmax_dequantization(x, max_val, bit=8):
+def absmax_dequantization(x, max_val, nl_next=False, min_val=None, bit=8):
     Qb = 2**(bit - 1)
     
     reverse_scale_factor = max_val / Qb
@@ -62,7 +70,7 @@ class BitLinear(nn.Module):
         weights = weights.view(self.out_features, self.in_features)
         
         # get quantized inputs
-        quantized_input, gamma = absmax_quantization(x)
+        quantized_input, gamma, eta = absmax_quantization(x, nl_next=self.nl_next)
         
         # forward pass
         # print(f"weights: {weights}")
