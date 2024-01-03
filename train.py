@@ -73,7 +73,7 @@ def run_validation(model, validation_dataset, tokenizer_src, tokenizer_tgt, max_
     
     console_width = 80
     
-    count = 1 
+    count = 0
     with torch.no_grad():
         for batch in validation_dataset:
             count += 1
