@@ -237,12 +237,12 @@ def train_model(config):
             global_step += 1
             
             if i % 100 == 0:
-                with open(f"{config['datasource']}_{config['model_folder']}/loss.csv", 'a') as f:
+                with open(f"train_results.csv", 'a') as f:
                     f.write(f"{epoch},{i},{loss.item()}\n")
               
         # save loss to csv file
-        with open(f"{config['datasource']}_{config['model_folder']}/loss.csv", 'a') as f:
-            f.write(f"{epoch},{i}{loss.item()}\n")
+        with open(f"train_results.csv", 'a') as f:
+            f.write(f"{epoch},{i},{loss.item()}\n")
         
         # validation
         run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
