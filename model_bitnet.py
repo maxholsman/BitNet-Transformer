@@ -211,7 +211,7 @@ class FFBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
         
         
-        self.w1 = BitLinear(d_model, d_ff) #includes bias
+        self.w1 = BitLinear(d_model, d_ff, nl_next=True) #includes bias
         self.w2 = BitLinear(d_ff, d_model)
         self.gelu = nn.GELU()
         
