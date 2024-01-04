@@ -409,7 +409,7 @@ class ProjectionLayer(nn.Module):
         self.d_model = d_model
         self.vocab_size = vocab_size
         
-        self.projection = nn.Linear(d_model, vocab_size)
+        self.projection = BitLinear(d_model, vocab_size)
 
     def forward(self, x):
         #applying log softmax for numerical stability
