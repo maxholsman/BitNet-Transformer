@@ -1,87 +1,162 @@
 import torch
 import torch.nn as nn
 import math
+import torch.nn.functional as F
 
-def absmax_quantization(x, bit=8, nl_next=False):
-    Qb = 2**(bit - 1)
-    
-    # find the maximum absolute value in the tensor
-    max_val = torch.max(torch.abs(x))
-    min_val = torch.min(x)
-    
-    if nl_next:
-        shifted_x = x - min_val
-        max_val = torch.max(torch.abs(shifted_x))
-        
-        scale_factor = Qb / max_val
-        x = torch.round(shifted_x * scale_factor)
-    else:
-        # using the max values, we can calculate the scaling factor for each value in the tensor to map it to the range appropriate range
-        scale_factor = Qb / max_val
-        
-        # now we can quantize the tensor, rounding to the nearest integer
-        x = torch.round(x * scale_factor)
-    
-    return x.to(torch.int8), max_val, min_val
+class BitLinear(nn.Module): # from git
+    """
+    BitLinear module as described in the BitNet architecture.
 
-def absmax_dequantization(x, max_val, nl_next=False, min_val=None, bit=8):
-    Qb = 2**(bit - 1)
-    
-    reverse_scale_factor = max_val / Qb
-    
-    x = x * reverse_scale_factor
-    
-    return x.to(torch.float32) # return to float32 which is original precision
+    This module performs a linear transformation with 1-bit quantized weights.
+    The transformation includes a quantization step, matrix multiplication,
+    and a subsequent dequantization step. Both the quantization and
+    dequantization steps utilize learnable parameters gamma and beta.
 
-class BitLinear(nn.Module):
-    def __init__(self, in_features, out_features, groups=1, bit=8, nl_next=False, bias=True):
+    Attributes:
+    - in_features: size of each input sample
+    - out_features: size of each output sample
+    - gamma: scaling factor for absmax quantization (learnable parameter)
+    - beta: scaling factor for dequantization (learnable parameter)
+    - weight: the 1-bit quantized weights of the linear transformation
+    - bias: the bias term for the linear transformation (optional)
+    """
+
+    def __init__(self, in_features, out_features, bias=True):
+        """
+        Initializes the BitLinear module.
+
+        Parameters:
+        - in_features: An integer, the number of input features.
+        - out_features: An integer, the number of output features.
+        - bias: A boolean, whether the layer includes a bias.
+        """
         super(BitLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.groups = groups
-        self.nl_next = nl_next
-        # print(f"input: {in_features}, output: {out_features}, groups: {groups}")
-        
-        self.weights = nn.Parameter(torch.Tensor(self.out_features, self.in_features))
-        
-        # print(f"weights: {self.weights.shape}")
-        # Upon initialization, the weights will be randomly initialized using the kaiming uniform method
-        self.parameter_initialization()
-        
-    def parameter_initialization(self):
-        nn.init.kaiming_uniform_(self.weights, a=math.sqrt(5))
-        
-    def forward(self, x):
-        weights = self.weights.view(self.groups, -1, self.in_features)
-        
-        # normalize to zero mean
-        weights = weights - weights.mean(dim=[1, 2], keepdim=True)
-        
-        # quantize weights
-        weights = torch.sign(weights)
-        
-        # calculate beta as 1-norm of weights divided by n*m
-        beta = (torch.norm(weights, p=1, dim=[1, 2], keepdim=True) / 
-                              (weights.shape[1] * weights.shape[2]))
-        
-        #scale the weights by beta
-        weights = weights * beta
-        
-        #reshape to original shape
-        weights = weights.view(self.out_features, self.in_features)
-        
-        # get quantized inputs
-        quantized_input, gamma, eta = absmax_quantization(x, nl_next=self.nl_next)
-        
-        # forward pass
-        # print(f"weights: {weights}")
-        # print(f"quantized input: {quantized_input}")
-        output = torch.matmul(quantized_input.float(), weights.t())
-        
-        # print(f"output: {output}")
-        output = absmax_dequantization(output, gamma)
-        
+
+        # Initialize weights and bias
+        self.weight = nn.Parameter(torch.randn(out_features, in_features))
+        if bias:
+            self.bias = nn.Parameter(torch.randn(out_features))
+        else:
+            self.register_parameter("bias", None)
+
+        # Learnable parameters for quantization and dequantization
+        self.gamma = nn.Parameter(torch.ones(in_features))
+        self.beta = nn.Parameter(torch.ones(out_features))
+
+    def forward(self, input):
+        """
+        Forward pass of the BitLinear module.
+
+        Parameters:
+        - input: A tensor of shape (batch_size, in_features).
+
+        Returns:
+        - output: A tensor of shape (batch_size, out_features).
+        """
+        # Apply Layer Normalization
+        input_norm = F.layer_norm(input, (self.in_features,))
+
+        # Absmax Quantization
+        quant_scale = torch.max(torch.abs(input_norm), dim=1, keepdim=True).values
+        input_quant = torch.sign(input_norm) * (quant_scale / self.gamma)
+
+        # 1-bit Weights Quantization
+        weight_quant = torch.sign(self.weight)
+
+        # MatMul with 1-bit weights using torch.matmul for explicit operation
+        output = torch.matmul(input_quant, weight_quant.t())
+
+        # Adding bias if it exists
+        if self.bias is not None:
+            output += self.bias.unsqueeze(0).expand_as(output)
+
+        # Dequantization with learnable parameters
+        output = output * self.beta.unsqueeze(0).expand_as(output)
+
         return output
+
+# def absmax_quantization(x, bit=8, nl_next=False):
+#     Qb = 2**(bit - 1)
+    
+#     # find the maximum absolute value in the tensor
+#     max_val = torch.max(torch.abs(x))
+#     min_val = torch.min(x)
+    
+#     if nl_next:
+#         shifted_x = x - min_val
+#         max_val = torch.max(torch.abs(shifted_x))
+        
+#         scale_factor = Qb / max_val
+#         x = torch.round(shifted_x * scale_factor)
+#     else:
+#         # using the max values, we can calculate the scaling factor for each value in the tensor to map it to the range appropriate range
+#         scale_factor = Qb / max_val
+        
+#         # now we can quantize the tensor, rounding to the nearest integer
+#         x = torch.round(x * scale_factor)
+    
+#     return x.to(torch.int8), max_val, min_val
+
+# def absmax_dequantization(x, max_val, nl_next=False, min_val=None, bit=8):
+#     Qb = 2**(bit - 1)
+    
+#     reverse_scale_factor = max_val / Qb
+    
+#     x = x * reverse_scale_factor
+    
+#     return x.to(torch.float32) # return to float32 which is original precision
+
+# class BitLinear(nn.Module):
+#     def __init__(self, in_features, out_features, groups=1, bit=8, nl_next=False, bias=True):
+#         super(BitLinear, self).__init__()
+#         self.in_features = in_features
+#         self.out_features = out_features
+#         self.groups = groups
+#         self.nl_next = nl_next
+#         # print(f"input: {in_features}, output: {out_features}, groups: {groups}")
+        
+#         self.weights = nn.Parameter(torch.Tensor(self.out_features, self.in_features))
+        
+#         # print(f"weights: {self.weights.shape}")
+#         # Upon initialization, the weights will be randomly initialized using the kaiming uniform method
+#         self.parameter_initialization()
+        
+#     def parameter_initialization(self):
+#         nn.init.kaiming_uniform_(self.weights, a=math.sqrt(5))
+        
+#     def forward(self, x):
+#         weights = self.weights.view(self.groups, -1, self.in_features)
+        
+#         # normalize to zero mean
+#         weights = weights - weights.mean(dim=[1, 2], keepdim=True)
+        
+#         # quantize weights
+#         weights = torch.sign(weights)
+        
+#         # calculate beta as 1-norm of weights divided by n*m
+#         beta = (torch.norm(weights, p=1, dim=[1, 2], keepdim=True) / 
+#                               (weights.shape[1] * weights.shape[2]))
+        
+#         #scale the weights by beta
+#         weights = weights * beta
+        
+#         #reshape to original shape
+#         weights = weights.view(self.out_features, self.in_features)
+        
+#         # get quantized inputs
+#         quantized_input, gamma, eta = absmax_quantization(x, nl_next=self.nl_next)
+        
+#         # forward pass
+#         # print(f"weights: {weights}")
+#         # print(f"quantized input: {quantized_input}")
+#         output = torch.matmul(quantized_input.float(), weights.t())
+        
+#         # print(f"output: {output}")
+#         output = absmax_dequantization(output, gamma)
+        
+#         return output
 
         
     # def forward(self, x):
