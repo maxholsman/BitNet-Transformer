@@ -73,7 +73,7 @@ class BitLinear(nn.Module):
         beta = torch.norm(self.weights, p=1) / (self.in_features * self.out_features)
         
         if self.nl_next:
-            output = output * dequant * beta + eta
+            output = (output * dequant + eta) * beta 
         else:
             output = output * dequant * beta
         
