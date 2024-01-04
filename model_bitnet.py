@@ -428,7 +428,7 @@ def build_bitnet_transformer(src_vocab_size, tgt_vocab_size, src_seq_len, tgt_se
     projection_layer = ProjectionLayer(d_model, tgt_vocab_size) #bc projecting into target vocab
     
     # Create transformer
-    transformer = Transformer(encoder, decoder, input_embedding, input_positional_embedding, output_embedding, output_positional_embedding, projection_layer)
+    transformer = BitNetTransformer(encoder, decoder, input_embedding, input_positional_embedding, output_embedding, output_positional_embedding, projection_layer)
     
     #initialize parameters
     for p in transformer.parameters():
