@@ -4,6 +4,8 @@ def get_config():
     return {
         "batch_size": 8, 
         "num_epochs":20,
+        "num_heads": 8,
+        "num_layers": 6,
         "lr": 0.0001,
         "seq_len": 500,
         "d_model": 512,

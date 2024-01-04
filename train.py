@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from torchsummary import summary
+
 from nltk.translate.bleu_score import sentence_bleu
 
 import os
@@ -171,9 +173,9 @@ def get_datset(config):
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
     if config['transformer_type'] == 'vanilla':
-        model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'])
+        model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'])
     if config['transformer_type'] == 'bitnet':
-        model = build_bitnet_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'])
+        model = build_bitnet_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'])
     return model
 
 def train_model(config):
@@ -189,6 +191,9 @@ def train_model(config):
     
     # get model
     model = get_model(config, tokenizer_src.get_vocab_size(), tokenizer_tgt.get_vocab_size()).to(device)
+    
+    print(f"Model summary:")
+    summary(model, input_size=(config['seq_len'],))
     
     # set up tensorboard
     writer = SummaryWriter(config['experiment_name'])
