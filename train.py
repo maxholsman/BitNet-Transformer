@@ -173,9 +173,9 @@ def get_datset(config):
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
     if config['transformer_type'] == 'vanilla':
-        model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'], dropout=config['dropout'])
+        model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'], dropout=config['dropout'], d_ff=config['d_ff'])
     if config['transformer_type'] == 'bitnet':
-        model = build_bitnet_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'], dropout=config['dropout'])
+        model = build_bitnet_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'], dropout=config['dropout'], d_ff=config['d_ff'])
     return model
 
 def train_model(config):
