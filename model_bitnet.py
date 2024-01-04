@@ -39,6 +39,7 @@ class BitLinear(nn.Module):
         self.in_features = in_features
         self.out_features = out_features
         self.groups = groups
+        self.nl_next = nl_next
         # print(f"input: {in_features}, output: {out_features}, groups: {groups}")
         
         self.weights = nn.Parameter(torch.Tensor(self.out_features, self.in_features))
