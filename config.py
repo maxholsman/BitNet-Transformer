@@ -9,6 +9,7 @@ def get_config():
         "lr": 0.0001,
         "seq_len": 500,
         "d_model": 512,
+        "dropout": 0.1,
         "lang_src": "en",
         "lang_tgt": "fr", # change to german later
         "train_data_ratio": 0.9,

@@ -173,9 +173,9 @@ def get_datset(config):
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
     if config['transformer_type'] == 'vanilla':
-        model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'])
+        model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'], dropout=config['dropout'])
     if config['transformer_type'] == 'bitnet':
-        model = build_bitnet_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'])
+        model = build_bitnet_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'], N=config['num_layers'], num_heads=config['num_heads'], dropout=config['dropout'])
     return model
 
 def train_model(config):
@@ -198,7 +198,7 @@ def train_model(config):
     # set up tensorboard
     writer = SummaryWriter(config['experiment_name'])
     
-    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'], eps=1e-9)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config['lr'], eps=1e-9, betas=(0.9, 0.98))
     
     initial_epoch = 0
     global_step = 0

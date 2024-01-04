@@ -442,6 +442,13 @@ class BitNetTransformer(nn.Module):
     def project(self, x):
         x = self.projection_layer(x)
         return x
+    
+    def forward(self, src, tgt, src_mask, tgt_mask):
+        #ONLY FOR TORCHSUMMARY
+        encoder_output = self.encode(src, src_mask)
+        decoder_output = self.decode(tgt, encoder_output, src_mask, tgt_mask)
+        output = self.project(decoder_output)
+        return output
 
 
 def build_bitnet_transformer(src_vocab_size, tgt_vocab_size, src_seq_len, tgt_seq_len, d_model=512, N=6, num_heads=8, dropout=0.1, d_ff=2048):
