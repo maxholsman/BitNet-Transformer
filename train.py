@@ -193,7 +193,14 @@ def train_model(config):
     model = get_model(config, tokenizer_src.get_vocab_size(), tokenizer_tgt.get_vocab_size()).to(device)
     
     print(f"Model summary:")
-    summary(model, input_size=(config['seq_len'],))
+    
+    # Assuming these are the sizes of your inputs
+    src_size = (config['batch_size'], config['seq_len'])
+    tgt_size = (config['batch_size'], config['seq_len'])
+    src_mask_size = (config['batch_size'], 1, 1, config['seq_len'])
+    tgt_mask_size = (config['batch_size'], 1, config['seq_len'], config['seq_len'])
+
+    summary(model, input_size=[src_size, tgt_size, src_mask_size, tgt_mask_size], batch_size=config['batch_size'])
     
     # set up tensorboard
     writer = SummaryWriter(config['experiment_name'])
