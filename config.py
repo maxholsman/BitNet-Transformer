@@ -9,6 +9,7 @@ def get_config():
         "lr": 0.0001,
         "seq_len": 500,
         "d_model": 512,
+        "d_ff": 2048,
         "dropout": 0.1,
         "lang_src": "en",
         "lang_tgt": "fr", # change to german later
