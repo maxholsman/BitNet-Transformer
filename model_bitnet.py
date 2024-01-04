@@ -64,13 +64,18 @@ class BitLinear(nn.Module):
         
         input_quant, dequant, gamma, eta = absmax_quantization(input_norm, nl_next=self.nl_next)
         
+        # weight = self.weights - self.weights.mean()
+        
         weight_quant = torch.sign(self.weights)
         
         output = torch.matmul(input_quant.float(), weight_quant.t())
             
         beta = torch.norm(self.weights, p=1) / (self.in_features * self.out_features)
         
-        output = output * dequant * beta
+        if self.nl_next:
+            output = output * dequant * beta + eta
+        else:
+            output = output * dequant * beta
         
         if self.bias is not None:
             output = output + self.bias.unsqueeze(0).expand_as(output)
