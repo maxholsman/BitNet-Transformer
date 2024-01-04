@@ -64,9 +64,9 @@ class BitLinear(nn.Module):
         
         input_quant, dequant, gamma, eta = absmax_quantization(input_norm, nl_next=self.nl_next)
         
-        # weight = self.weights - self.weights.mean()
+        weights = self.weights - self.weights.mean()
         
-        weight_quant = torch.sign(self.weights)
+        weight_quant = torch.sign(weights)
         
         output = torch.matmul(input_quant.float(), weight_quant.t())
             
@@ -409,7 +409,7 @@ class ProjectionLayer(nn.Module):
         self.d_model = d_model
         self.vocab_size = vocab_size
         
-        self.projection = BitLinear(d_model, vocab_size)
+        self.projection = nn.Linear(d_model, vocab_size)
 
     def forward(self, x):
         #applying log softmax for numerical stability

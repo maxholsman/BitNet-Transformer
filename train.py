@@ -257,6 +257,8 @@ def train_model(config):
             global_step += 1
             
             if i % 100 == 0:
+                run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer)
+                
                 with open(f"train_results.csv", 'a') as f:
                     f.write(f"{epoch},{i},{loss.item()}\n")
               
