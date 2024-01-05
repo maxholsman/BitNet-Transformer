@@ -51,6 +51,8 @@ class BitLinear(nn.Module):
         
         self.weights = nn.Parameter(torch.randn(self.out_features, self.in_features))
         
+        self.beta = nn.Parameter(torch.ones(out_features))
+        
         # # print(f"weights: {self.weights.shape}")
         # # Upon initialization, the weights will be randomly initialized using the kaiming uniform method
         # self.parameter_initialization()
@@ -73,9 +75,11 @@ class BitLinear(nn.Module):
         beta = torch.norm(self.weights, p=1) / (self.in_features * self.out_features)
         
         if self.nl_next:
-            output = (output * dequant + eta) * beta 
+            # output = (output * dequant + eta) * beta 
+            output = (output * dequant + eta) * self.beta.unsqueeze(0).expand_as(output)
         else:
-            output = output * dequant * beta
+            # output = output * dequant * beta
+            output = output * dequant * self.beta.unsqueeze(0).expand_as(output)
         
         if self.bias is not None:
             output = output + self.bias.unsqueeze(0).expand_as(output)
