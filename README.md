@@ -4,6 +4,7 @@ This repository is a from scratch implementation of both the traditional transfo
 
 This implementation demonstrates how the quantized 'BitLinear' layer can be used instead of the 'nn.Linear' PyTorch layer to build a transformer with scaling performance during training. 
 
-
+Finished: traditional transformer architecture, BitLinear quantized replacement for nn.Linear layer, implemented BitLinear in BitNet transformer
+In progress: finetuning performance of BitNet into working transformer -> currently loss does not drop low enough to produce acceptable outputs
 
 
